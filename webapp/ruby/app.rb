@@ -1,8 +1,22 @@
 require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
+require 'rack-mini-profiler'
+
+c = ::Rack::MiniProfiler.config
+tmp = "log/miniprofiler"
+FileUtils.mkdir_p(tmp) unless File.exist?(tmp)
+c.storage_options = {:path => tmp}
+c.storage = ::Rack::MiniProfiler::FileStore
+require 'json'
+class Rack::MiniProfiler::FileStore::FileCache
+  def []=(key,val)
+    ::File.open(path(key), "wb+") {|f| f.write JSON.dump(val)}
+  end
+end
 
 class App < Sinatra::Base
+  use Rack::MiniProfiler
   configure do
     set :session_secret, 'tonymoris'
     set :public_folder, File.expand_path('../../public', __FILE__)
@@ -151,13 +165,9 @@ class App < Sinatra::Base
       return 403
     end
 
-    sleep 1.0
+    channel_ids = db.query('SELECT id FROM channel').to_a.map { |row| row['id'] }
 
-    rows = db.query('SELECT id FROM channel').to_a
-    channel_ids = rows.map { |row| row['id'] }
-
-    res = []
-    channel_ids.each do |channel_id|
+    res = channel_ids.map do |channel_id|
       statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ?')
       row = statement.execute(user_id, channel_id).first
       statement.close
@@ -171,7 +181,7 @@ class App < Sinatra::Base
         statement.execute(channel_id, row['message_id']).first['cnt']
       end
       statement.close
-      res << r
+      r
     end
 
     content_type :json
@@ -241,7 +251,7 @@ class App < Sinatra::Base
     @self_profile = user['id'] == @user['id']
     erb :profile
   end
-  
+
   get '/add_channel' do
     if user.nil?
       return redirect '/login', 303

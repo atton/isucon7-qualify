@@ -35,6 +35,9 @@ class App < Sinatra::Base
     enable :sessions
   end
 
+  # Init: write images from DB. TODO: convert to rake task.
+  # Image.all.each {|i| File.write([settings.public_folder, 'icons', i.name].join('/'), i.data) }
+
   configure :development do
     require 'sinatra/reloader'
     register Sinatra::Reloader
@@ -338,20 +341,6 @@ class App < Sinatra::Base
     end
 
     redirect '/', 303
-  end
-
-  get '/icons/:file_name' do
-    file_name = params[:file_name]
-    statement = db.prepare('SELECT * FROM image WHERE name = ? LIMIT 1')
-    row = statement.execute(file_name).first
-    statement.close
-    ext = file_name.include?('.') ? File.extname(file_name) : ''
-    mime = ext2mime(ext)
-    if !row.nil? && !mime.empty?
-      content_type mime
-      return row['data']
-    end
-    404
   end
 
   private

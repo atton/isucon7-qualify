@@ -1,22 +1,32 @@
 require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
-require 'rack-mini-profiler'
+require "sinatra/activerecord"
 
-c = ::Rack::MiniProfiler.config
-tmp = "log/miniprofiler"
-FileUtils.mkdir_p(tmp) unless File.exist?(tmp)
-c.storage_options = {:path => tmp}
-c.storage = ::Rack::MiniProfiler::FileStore
-require 'json'
-class Rack::MiniProfiler::FileStore::FileCache
-  def []=(key,val)
-    ::File.open(path(key), "wb+") {|f| f.write JSON.dump(val)}
-  end
-end
 
 class App < Sinatra::Base
-  use Rack::MiniProfiler
+  register Sinatra::ActiveRecordExtension
+  set :database, {adapter: 'mysql2',
+                  database: 'isubata',
+                  host: ENV['ISUBATA_DB_HOST'],
+                  username: ENV['ISUBATA_DB_USER'],
+                  password: ENV['ISUBATA_DB_PASSWORD']}
+  class Channel < ActiveRecord::Base
+    self.table_name = 'channel'
+  end
+  class User < ActiveRecord::Base
+    self.table_name = 'user'
+  end
+  class Haveread < ActiveRecord::Base
+    self.table_name = 'haveread'
+  end
+  class Message < ActiveRecord::Base
+    self.table_name = 'message'
+  end
+  class Image < ActiveRecord::Base
+    self.table_name = 'image'
+  end
+
   configure do
     set :session_secret, 'tonymoris'
     set :public_folder, File.expand_path('../../public', __FILE__)

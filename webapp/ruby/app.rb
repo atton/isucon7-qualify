@@ -168,6 +168,7 @@ class App < Sinatra::Base
       'ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()',
     ].join)
     statement.execute(user_id, channel_id, max_message_id, max_message_id)
+    statement.close
 
     content_type :json
     response.to_json

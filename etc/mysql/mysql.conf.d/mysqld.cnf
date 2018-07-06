@@ -33,8 +33,8 @@ pid-file	= /var/run/mysqld/mysqld.pid
 socket		= /var/run/mysqld/mysqld.sock
 port		= 3306
 basedir		= /usr
-datadir		= /mnt/ramdisk/mysql
-tmpdir		= /mnt/ramdisk/tmp
+datadir		= /var/lib/mysql
+tmpdir		= /tmp
 lc-messages-dir	= /usr/share/mysql
 skip-external-locking
 #
@@ -51,7 +51,7 @@ thread_cache_size       = 8
 # This replaces the startup script and checks MyISAM tables if needed
 # the first time they are touched
 myisam-recover-options  = BACKUP
-#max_connections        = 100
+max_connections        = 512
 #table_cache            = 64
 #thread_concurrency     = 10
 #

@@ -13,13 +13,17 @@ class App < Sinatra::Base
                   username: ENV['ISUBATA_DB_USER'],
                   password: ENV['ISUBATA_DB_PASSWORD']}
   class Channel < ActiveRecord::Base
+    has_many :havereads
     self.table_name = 'channel'
   end
   class User < ActiveRecord::Base
     has_many :messages
+    has_many :havereads
     self.table_name = 'user'
   end
   class Haveread < ActiveRecord::Base
+    belongs_to :channel
+    belongs_to :user
     self.table_name = 'haveread'
   end
   class Message < ActiveRecord::Base
@@ -175,22 +179,16 @@ class App < Sinatra::Base
       return 403
     end
 
-    channel_ids = Channel.pluck(:id)
+    channels = Channel.joins(:havereads).where('haveread.user_id = ?', user_id).select(:id)
 
-    res = channel_ids.map do |channel_id|
-      statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ?')
-      row = statement.execute(user_id, channel_id).first
-      statement.close
+    res = channels.map do |c|
       r = {}
-      r['channel_id'] = channel_id
-      r['unread'] = if row.nil?
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
-        statement.execute(channel_id).first['cnt']
+      r['channel_id'] = c.id
+      r['unread'] = if c.havereads.blank?
+        Message.where('channel_id = ?', c.id).count
       else
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id')
-        statement.execute(channel_id, row['message_id']).first['cnt']
+        Message.where('channel_id = ?', c.id).where('? < id', c.havereads.first.message_id).count
       end
-      statement.close
       r
     end
 

@@ -214,25 +214,17 @@ class App < Sinatra::Base
     @page = @page.to_i
 
     n = 20
-    statement = db.prepare('SELECT * FROM message WHERE channel_id = ? ORDER BY id DESC LIMIT ? OFFSET ?')
-    rows = statement.execute(@channel_id, n, (@page - 1) * n).to_a
-    statement.close
-    @messages = []
-    rows.each do |row|
+    messages = Message.where(channel_id: @channel_id).order(id: :desc).limit(n).offset((@page - 1) * n).includes(:user)
+    @messages = messages.map do |message|
       r = {}
-      r['id'] = row['id']
-      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
-      r['user'] = statement.execute(row['user_id']).first
-      r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
-      r['content'] = row['content']
-      @messages << r
-      statement.close
-    end
-    @messages.reverse!
+      r['id'] = message.id
+      r['user'] = message.user.as_json(only: [:name, :display_name, :avatar_icon])
+      r['date'] = message.created_at.strftime("%Y/%m/%d %H:%M:%S")
+      r['content'] = message.content
+      r
+    end.reverse
 
-    statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
-    cnt = statement.execute(@channel_id).first['cnt'].to_f
-    statement.close
+    cnt = Message.where(channel_id: @channel_id).count.to_f
     @max_page = cnt == 0 ? 1 :(cnt / n).ceil
 
     return 400 if @page > @max_page

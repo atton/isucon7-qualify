@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 0) do
+ActiveRecord::Schema.define(version: 2018_07_06_030307) do
 
   create_table "channel", options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", force: :cascade do |t|
     t.text "name", null: false
@@ -27,11 +27,6 @@ ActiveRecord::Schema.define(version: 0) do
     t.datetime "created_at", null: false
   end
 
-  create_table "image", id: :bigint, unsigned: true, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", force: :cascade do |t|
-    t.string "name", limit: 191
-    t.binary "data", limit: 4294967295
-  end
-
   create_table "message", options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", force: :cascade do |t|
     t.bigint "channel_id"
     t.bigint "user_id"
@@ -46,6 +41,7 @@ ActiveRecord::Schema.define(version: 0) do
     t.text "display_name"
     t.text "avatar_icon"
     t.datetime "created_at", null: false
+    t.index ["name"], name: "index_user_on_name"
     t.index ["name"], name: "name", unique: true
   end
 

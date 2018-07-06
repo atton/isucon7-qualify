@@ -23,9 +23,6 @@ class App < Sinatra::Base
   class Message < ActiveRecord::Base
     self.table_name = 'message'
   end
-  class Image < ActiveRecord::Base
-    self.table_name = 'image'
-  end
 
   configure do
     set :session_secret, 'tonymoris'
@@ -36,6 +33,9 @@ class App < Sinatra::Base
   end
 
   # Init: write images from DB. TODO: convert to rake task.
+  # class Image < ActiveRecord::Base
+  #   self.table_name = 'image'
+  # end
   # Image.all.each {|i| File.write([settings.public_folder, 'icons', i.name].join('/'), i.data) }
 
   configure :development do
@@ -62,7 +62,6 @@ class App < Sinatra::Base
 
   get '/initialize' do
     db.query("DELETE FROM user WHERE id > 1000")
-    db.query("DELETE FROM image WHERE id > 1001")
     db.query("DELETE FROM channel WHERE id > 10")
     db.query("DELETE FROM message WHERE id > 10000")
     db.query("DELETE FROM haveread")

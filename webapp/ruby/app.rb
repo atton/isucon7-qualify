@@ -1,7 +1,8 @@
 require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
-require "sinatra/activerecord"
+require 'sinatra/activerecord'
+require 'pry'
 
 
 class App < Sinatra::Base
@@ -15,12 +16,14 @@ class App < Sinatra::Base
     self.table_name = 'channel'
   end
   class User < ActiveRecord::Base
+    has_many :messages
     self.table_name = 'user'
   end
   class Haveread < ActiveRecord::Base
     self.table_name = 'haveread'
   end
   class Message < ActiveRecord::Base
+    belongs_to :user
     self.table_name = 'message'
   end
 
@@ -144,22 +147,17 @@ class App < Sinatra::Base
 
     channel_id = params[:channel_id].to_i
     last_message_id = params[:last_message_id].to_i
-    statement = db.prepare('SELECT * FROM message WHERE id > ? AND channel_id = ? ORDER BY id DESC LIMIT 100')
-    rows = statement.execute(last_message_id, channel_id).to_a
-    response = []
-    rows.each do |row|
-      r = {}
-      r['id'] = row['id']
-      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
-      r['user'] = statement.execute(row['user_id']).first
-      r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
-      r['content'] = row['content']
-      response << r
-      statement.close
+    messages = Message.where('id > ?', last_message_id).where('channel_id = ?', channel_id).order('id desc').limit(100).includes(:user)
+    response = messages.map do |message|
+      {'id' => message.id,
+       'user' => message.user.as_json(only: [:name, :display_name, :avatar_icon]),
+       'date' => message.created_at.strftime("%Y/%m/%d %H:%M:%S"),
+       'content' => message.content
+      }
     end
     response.reverse!
 
-    max_message_id = rows.empty? ? 0 : rows.map { |row| row['id'] }.max
+    max_message_id = messages.empty? ? 0 : messages.map { |row| row['id'] }.max
     statement = db.prepare([
       'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
       'VALUES (?, ?, ?, NOW(), NOW()) ',

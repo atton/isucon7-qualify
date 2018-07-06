@@ -135,7 +135,7 @@ class App < Sinatra::Base
     if user_id.nil? || message.nil? || channel_id.nil? || user.nil?
       return 403
     end
-    db_add_message(channel_id.to_i, user_id, message)
+    Message.create(user_id: user_id, content: message, channel_id: channel_id, created_at: Time.now)
     204
   end
 
@@ -175,7 +175,7 @@ class App < Sinatra::Base
       return 403
     end
 
-    channel_ids = db.query('SELECT id FROM channel').to_a.map { |row| row['id'] }
+    channel_ids = Channel.pluck(:id)
 
     res = channel_ids.map do |channel_id|
       statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ?')
@@ -361,13 +361,6 @@ class App < Sinatra::Base
     user = statement.execute(user_id).first
     statement.close
     user
-  end
-
-  def db_add_message(channel_id, user_id, content)
-    statement = db.prepare('INSERT INTO message (channel_id, user_id, content, created_at) VALUES (?, ?, ?, NOW())')
-    messages = statement.execute(channel_id, user_id, content)
-    statement.close
-    messages
   end
 
   def random_string(n)

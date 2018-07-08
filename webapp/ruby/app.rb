@@ -313,19 +313,19 @@ class App < Sinatra::Base
       end
     end
 
+    target_user = User.find(user['id'])
+
     if !avatar_name.nil? && !avatar_data.nil?
       path = [settings.public_folder, 'icons', avatar_name].join('/')
       File.write(path, avatar_data) unless File.exists?(path)
-      statement = db.prepare('UPDATE user SET avatar_icon = ? WHERE id = ?')
-      statement.execute(avatar_name, user['id'])
-      statement.close
+      target_user.avatar_icon = avatar_name
     end
 
     if !display_name.nil? || !display_name.empty?
-      statement = db.prepare('UPDATE user SET display_name = ? WHERE id = ?')
-      statement.execute(display_name, user['id'])
-      statement.close
+      target_user.display_name = display_name
     end
+
+    target_user.save if target_user.changed?
 
     redirect '/', 303
   end

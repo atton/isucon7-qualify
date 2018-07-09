@@ -2,14 +2,15 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require 'sinatra/activerecord'
-require 'pry'
 
 
 class App < Sinatra::Base
   register Sinatra::ActiveRecordExtension
   set :database, {adapter: 'mysql2',
                   database: 'isubata',
-                  host: ENV['ISUBATA_DB_HOST'],
+                  pool: 25,
+                  reconnect: true,
+                  socket: '/var/run/mysqld/mysqld.sock',
                   username: ENV['ISUBATA_DB_USER'],
                   password: ENV['ISUBATA_DB_PASSWORD']}
   ActiveRecord::Base.logger = nil
@@ -23,8 +24,6 @@ class App < Sinatra::Base
     self.table_name = 'user'
   end
   class Haveread < ActiveRecord::Base
-    belongs_to :channel
-    belongs_to :user
     self.table_name = 'haveread'
   end
   class Message < ActiveRecord::Base
@@ -46,11 +45,6 @@ class App < Sinatra::Base
   # end
   # Image.all.each {|i| File.write([settings.public_folder, 'icons', i.name].join('/'), i.data) }
 
-  configure :development do
-    require 'sinatra/reloader'
-    register Sinatra::Reloader
-  end
-
   helpers do
     def user
       return @_user unless @_user.nil?
@@ -69,10 +63,10 @@ class App < Sinatra::Base
   end
 
   get '/initialize' do
-    db.query("DELETE FROM user WHERE id > 1000")
-    db.query("DELETE FROM channel WHERE id > 10")
-    db.query("DELETE FROM message WHERE id > 10000")
-    db.query("DELETE FROM haveread")
+    User.where('id > 1000').destroy_all
+    Channel.where('id > 10').destroy_all
+    Message.where('id > 10000').destroy_all
+    Haveread.destroy_all
     204
   end
 
@@ -105,8 +99,8 @@ class App < Sinatra::Base
     end
     begin
       user_id = register(name, pw)
-    rescue Mysql2::Error => e
-      return 409 if e.error_number == 1062
+    rescue => e
+      return 409 if e.class == ActiveRecord::RecordNotUnique
       raise e
     end
     session[:user_id] = user_id
@@ -118,14 +112,11 @@ class App < Sinatra::Base
   end
 
   post '/login' do
-    name = params[:name]
-    statement = db.prepare('SELECT * FROM user WHERE name = ? LIMIT 1')
-    row = statement.execute(name).first
-    statement.close
-    if row.nil? || row['password'] != Digest::SHA1.hexdigest(row['salt'] + params[:password])
+    u = User.find_by(name: params[:name])
+    if u.nil? || u['password'] != Digest::SHA1.hexdigest(u['salt'] + params[:password])
       return 403
     end
-    session[:user_id] = row['id']
+    session[:user_id] = u['id']
     redirect '/', 303
   end
 
@@ -164,13 +155,13 @@ class App < Sinatra::Base
     response.reverse!
 
     max_message_id = messages.empty? ? 0 : messages.map { |row| row['id'] }.max
-    statement = db.prepare([
-      'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
-      'VALUES (?, ?, ?, NOW(), NOW()) ',
-      'ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()',
-    ].join)
-    statement.execute(user_id, channel_id, max_message_id, max_message_id)
-    statement.close
+    h = Haveread.find_by(user_id: user_id, channel_id: channel_id)
+    if h.nil?
+      t = Time.now
+      Haveread.create!(user_id: user_id, channel_id: channel_id, message_id: max_message_id, updated_at: t, created_at: t)
+    else
+      h.update_attributes(message_id: max_message_id, updated_at: Time.now)
+    end
 
     content_type :json
     response.to_json
@@ -240,12 +231,9 @@ class App < Sinatra::Base
       return redirect '/login', 303
     end
 
-    @channels, = get_channel_list_info
+    @channels = get_channel_list
 
-    user_name = params[:user_name]
-    statement = db.prepare('SELECT * FROM user WHERE name = ?')
-    @user = statement.execute(user_name).first
-    statement.close
+    @user = User.find_by(name: params[:user_name])
 
     if @user.nil?
       return 404
@@ -260,7 +248,7 @@ class App < Sinatra::Base
       return redirect '/login', 303
     end
 
-    @channels, = get_channel_list_info
+    @channels = get_channel_list
     erb :add_channel
   end
 
@@ -274,20 +262,14 @@ class App < Sinatra::Base
     if name.nil? || description.nil?
       return 400
     end
-    statement = db.prepare('INSERT INTO channel (name, description, updated_at, created_at) VALUES (?, ?, NOW(), NOW())')
-    statement.execute(name, description)
-    channel_id = db.last_id
-    statement.close
+    t = Time.now
+    channel_id = Channel.create(name: name, description: description, updated_at: t, created_at: t).id
     redirect "/channel/#{channel_id}", 303
   end
 
   post '/profile' do
     if user.nil?
       return redirect '/login', 303
-    end
-
-    if user.nil?
-      return 403
     end
 
     display_name = params[:display_name]
@@ -334,26 +316,8 @@ class App < Sinatra::Base
 
   private
 
-  def db
-    return @db_client if defined?(@db_client)
-
-    @db_client = Mysql2::Client.new(
-      host: ENV.fetch('ISUBATA_DB_HOST') { 'localhost' },
-      port: ENV.fetch('ISUBATA_DB_PORT') { '3306' },
-      username: ENV.fetch('ISUBATA_DB_USER') { 'root' },
-      password: ENV.fetch('ISUBATA_DB_PASSWORD') { '' },
-      database: 'isubata',
-      encoding: 'utf8mb4'
-    )
-    @db_client.query('SET SESSION sql_mode=\'TRADITIONAL,NO_AUTO_VALUE_ON_ZERO,ONLY_FULL_GROUP_BY\'')
-    @db_client
-  end
-
   def db_get_user(user_id)
-    statement = db.prepare('SELECT * FROM user WHERE id = ?')
-    user = statement.execute(user_id).first
-    statement.close
-    user
+    User.find(user_id)
   end
 
   def random_string(n)
@@ -363,15 +327,16 @@ class App < Sinatra::Base
   def register(user, password)
     salt = random_string(20)
     pass_digest = Digest::SHA1.hexdigest(salt + password)
-    statement = db.prepare('INSERT INTO user (name, salt, password, display_name, avatar_icon, created_at) VALUES (?, ?, ?, ?, ?, NOW())')
-    statement.execute(user, salt, pass_digest, user, 'default.png')
-    row = db.query('SELECT LAST_INSERT_ID() AS last_insert_id').first
-    statement.close
-    row['last_insert_id']
+    u = User.create(name: user, salt: salt, password: pass_digest, display_name: user, avatar_icon: 'default.png', created_at: Time.now)
+    u.id
+  end
+
+  def get_channel_list
+    Channel.order(:id)
   end
 
   def get_channel_list_info(focus_channel_id = nil)
-    channels = db.query('SELECT * FROM channel ORDER BY id').to_a
+    channels = Channel.order(:id)
     description = ''
     channels.each do |channel|
       if channel['id'] == focus_channel_id
@@ -380,18 +345,5 @@ class App < Sinatra::Base
       end
     end
     [channels, description]
-  end
-
-  def ext2mime(ext)
-    if ['.jpg', '.jpeg'].include?(ext)
-      return 'image/jpeg'
-    end
-    if ext == '.png'
-      return 'image/png'
-    end
-    if ext == '.gif'
-      return 'image/gif'
-    end
-    ''
   end
 end

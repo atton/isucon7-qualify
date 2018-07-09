@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2018_07_06_030307) do
+ActiveRecord::Schema.define(version: 2018_07_09_120210) do
 
   create_table "channel", options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", force: :cascade do |t|
     t.text "name", null: false
@@ -19,7 +19,7 @@ ActiveRecord::Schema.define(version: 2018_07_06_030307) do
     t.datetime "created_at", null: false
   end
 
-  create_table "haveread", primary_key: ["user_id", "channel_id"], options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", force: :cascade do |t|
+  create_table "haveread", options: "ENGINE=InnoDB DEFAULT CHARSET=latin1", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.bigint "channel_id", null: false
     t.bigint "message_id"

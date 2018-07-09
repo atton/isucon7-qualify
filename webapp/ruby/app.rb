@@ -2,7 +2,6 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require 'sinatra/activerecord'
-require 'stackprof'
 require 'pry'
 
 

@@ -2,6 +2,7 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require 'sinatra/activerecord'
+require 'stackprof'
 require 'pry'
 
 
@@ -12,6 +13,7 @@ class App < Sinatra::Base
                   host: ENV['ISUBATA_DB_HOST'],
                   username: ENV['ISUBATA_DB_USER'],
                   password: ENV['ISUBATA_DB_PASSWORD']}
+  ActiveRecord::Base.logger = nil
   class Channel < ActiveRecord::Base
     has_many :havereads
     self.table_name = 'channel'

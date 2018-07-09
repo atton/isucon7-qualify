@@ -2,15 +2,13 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require 'sinatra/activerecord'
-require 'dalli'
 require 'pry'
+
 
 class App < Sinatra::Base
   register Sinatra::ActiveRecordExtension
   set :database, {adapter: 'mysql2',
                   database: 'isubata',
-                  pool: 32,
-                  reconnect: true,
                   host: ENV['ISUBATA_DB_HOST'],
                   username: ENV['ISUBATA_DB_USER'],
                   password: ENV['ISUBATA_DB_PASSWORD']}
@@ -45,8 +43,7 @@ class App < Sinatra::Base
   # class Image < ActiveRecord::Base
   #   self.table_name = 'image'
   # end
-  # Image.all.each {|i| File.write(['/home/atton', 'icons', i.name].join('/'), i.data) }
-  # Dir.glob('/home/atton/icons/*').each{|i| memcached.set(['', 'icons', File.basename(i)].join('/'), File.read(i), nil, raw: true)}
+  # Image.all.each {|i| File.write([settings.public_folder, 'icons', i.name].join('/'), i.data) }
 
   configure :development do
     require 'sinatra/reloader'
@@ -320,8 +317,8 @@ class App < Sinatra::Base
     target_user = User.find(user['id'])
 
     if !avatar_name.nil? && !avatar_data.nil?
-      path = ['', 'icons', avatar_name].join('/')
-      memcached.set(path, avatar_data, nil, raw: true)
+      path = [settings.public_folder, 'icons', avatar_name].join('/')
+      File.write(path, avatar_data) unless File.exists?(path)
       target_user.avatar_icon = avatar_name
     end
 
@@ -335,11 +332,6 @@ class App < Sinatra::Base
   end
 
   private
-
-  def memcached
-    return @memcached if defined?(@memcached)
-    @memcached = Dalli::Client.new('localhost:11211', {})
-  end
 
   def db
     return @db_client if defined?(@db_client)

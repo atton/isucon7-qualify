@@ -8,9 +8,9 @@ class App < Sinatra::Base
   register Sinatra::ActiveRecordExtension
   set :database, {adapter: 'mysql2',
                   database: 'isubata',
-                  pool: 25,
+                  pool: 16,
                   reconnect: true,
-                  socket: '/var/run/mysqld/mysqld.sock',
+                  host: ENV['ISUBATA_DB_HOST'],
                   username: ENV['ISUBATA_DB_USER'],
                   password: ENV['ISUBATA_DB_PASSWORD']}
   ActiveRecord::Base.logger = nil

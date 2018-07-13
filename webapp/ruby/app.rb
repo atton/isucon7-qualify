@@ -233,14 +233,13 @@ class App < Sinatra::Base
       return redirect '/login', 303
     end
 
-    @channels = get_channel_list
-
     @user = User.find_by(name: params[:user_name])
 
     if @user.nil?
       return 404
     end
 
+    @channels = get_channel_list
     @self_profile = user['id'] == @user['id']
     erb :profile
   end

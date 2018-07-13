@@ -301,7 +301,7 @@ class App < Sinatra::Base
     target_user = User.find(user['id'])
 
     if !avatar_name.nil? && !avatar_data.nil?
-      memcached.set(avatar_name, avatar_data, (30*24*30*30))
+      memcached.set('/icons/' + avatar_name, avatar_data, (30*24*30*30), raw: true)
       target_user.avatar_icon = avatar_name
     end
 
@@ -318,7 +318,7 @@ class App < Sinatra::Base
 
   def memcached
     return @memcached if defined?(@memcached)
-    @memcached = Dalli::Client.new(ENV['ISUBATA_DB_HOST'], namespace: 'isubata')
+    @memcached = Dalli::Client.new(ENV['ISUBATA_DB_HOST'])
   end
 
   def db_get_user(user_id)

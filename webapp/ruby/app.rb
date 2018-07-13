@@ -2,6 +2,7 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require 'sinatra/activerecord'
+require 'pry'
 
 
 class App < Sinatra::Base
@@ -43,7 +44,7 @@ class App < Sinatra::Base
   # class Image < ActiveRecord::Base
   #   self.table_name = 'image'
   # end
-  # Image.all.each {|i| File.write([settings.public_folder, 'icons', i.name].join('/'), i.data) }
+  # Image.find_each(batch_size: 1){|i| File.write([settings.public_folder, 'icons', i.name].join('/'), i.data) }
 
   helpers do
     def user

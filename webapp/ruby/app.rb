@@ -332,7 +332,7 @@ class App < Sinatra::Base
 
   def memcached
     return @memcached if defined?(@memcached)
-    @memcached = Dalli::Client.new(ENV['ISUBATA_DB_HOST'])
+    @memcached = Dalli::Client.new(ENV['ISUBATA_DB_HOST'], namespace: 'isubata')
   end
 
   def db_get_user(user_id)

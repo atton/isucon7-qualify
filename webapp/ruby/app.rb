@@ -315,19 +315,6 @@ class App < Sinatra::Base
     redirect '/', 303
   end
 
-  get '/icons/:file_name' do
-    file_name = params[:file_name]
-    mime = ext2mime(File.extname(file_name))
-    return 404 if mime.empty?
-
-    file = memcached.get(file_name)
-    return 404 if file.nil?
-
-    cache_control :public, max_age: (24*60*60)
-    content_type mime
-    file
-  end
-
   private
 
   def memcached
@@ -364,18 +351,5 @@ class App < Sinatra::Base
       end
     end
     [channels, description]
-  end
-
-  def ext2mime(ext)
-    if ['.jpg', '.jpeg'].include?(ext)
-      return 'image/jpeg'
-    end
-    if ext == '.png'
-      return 'image/png'
-    end
-    if ext == '.gif'
-      return 'image/gif'
-    end
-    ''
   end
 end

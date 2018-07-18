@@ -2,7 +2,6 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require 'sinatra/activerecord'
-require 'dalli'
 require 'pry'
 
 
@@ -301,7 +300,8 @@ class App < Sinatra::Base
     target_user = User.find(user['id'])
 
     if !avatar_name.nil? && !avatar_data.nil?
-      memcached.set('/icons/' + avatar_name, avatar_data, (30*24*30*30), raw: true)
+      path = [settings.public_folder, 'icons', avatar_name].join('/')
+      File.write(path, avatar_data) unless File.exists?(path)
       target_user.avatar_icon = avatar_name
     end
 
@@ -315,11 +315,6 @@ class App < Sinatra::Base
   end
 
   private
-
-  def memcached
-    return @memcached if defined?(@memcached)
-    @memcached = Dalli::Client.new(ENV['ISUBATA_DB_HOST'])
-  end
 
   def db_get_user(user_id)
     User.find(user_id)
